@@ -10,7 +10,7 @@ from yahoo_finance import Share
 hostname = 'localhost'
 username = 'testuser'
 password = 'test'
-database = 'starwars'
+database = 'mydb'
 myConnection = pymysql.connect( host=hostname, user=username, passwd=password, db=database )
 
 # Query the DB
@@ -81,6 +81,10 @@ class Window(QWidget):
 		return
 
 	def handleRefresh(self, event):
+		share = Share('YHOO')
+		self.log.clear()
+		for stock in share.get_historical('2015-05-10', '2015-05-15'):
+			self.log.append(stock['Symbol'] + ": " + stock['Adj_Close'])
 		return
 
 
