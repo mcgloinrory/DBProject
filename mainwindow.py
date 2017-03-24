@@ -3,7 +3,8 @@
 import sys
 import pymysql
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QGridLayout, QGroupBox,
-        QMenu, QPushButton, QRadioButton, QVBoxLayout, QWidget, QTextEdit)
+		QMenu, QPushButton, QRadioButton, QVBoxLayout, QWidget, QTextEdit, QHBoxLayout)
+from yahoo_finance import Share
 
 # DB Credentials
 hostname = 'localhost'
@@ -13,65 +14,79 @@ database = 'starwars'
 myConnection = pymysql.connect( host=hostname, user=username, passwd=password, db=database )
 
 # Query the DB
-def doQuery( conn ) :
-    cur = conn.cursor()
-
-    cur.execute( "SELECT * FROM characters" )
-
-    return cur.fetchall()
+def doQuery(conn, query) :
+	cur = conn.cursor()
+	cur.execute(query)
+	return cur.fetchall()
 
 # Main Window
 class Window(QWidget):
 
-    def __init__(self, parent=None):
-        super(Window, self).__init__(parent)
+	def __init__(self, parent=None):
+		super(Window, self).__init__(parent)
 
-        self.grid = QGridLayout()
-        self.log = QTextEdit()
-        buttonGroup = self.createButtonGroup()
-        textboxGroup = self.createTextBoxGroup()
-        self.grid.addWidget(buttonGroup, 0, 0)
-        self.grid.addWidget(textboxGroup, 1, 0)
-        self.setLayout(self.grid)
+		self.grid = QGridLayout()
+		self.log = QTextEdit()
+		self.grid.addWidget(self.createButtonGroup(), 0, 0)
+		self.grid.addWidget(self.createTextBoxGroup(), 1, 0)
+		self.grid.addWidget(self.createRefreshButton(), 2, 0)
+		self.setLayout(self.grid)
 
-        self.setWindowTitle("Group Box")
-        self.resize(480, 320)
+		self.setWindowTitle("Portfolio Manager")
+		self.resize(360, 320)
 
-    def createButtonGroup(self):
-    	groupBox = QGroupBox("Button button button")
+	def createButtonGroup(self):
+		groupBox = QGroupBox()
 
-    	button1 = QPushButton("SELECT * FROM characters")
-    	button1.clicked.connect(self.handleClick)
+		infobutton = QPushButton("Stock Info")
+		infobutton.clicked.connect(self.handleInfo)
+		buybutton = QPushButton("Buy Stock")
+		buybutton.clicked.connect(self.handleBuy)
+		sellbutton = QPushButton("Sell Stock")
+		sellbutton.clicked.connect(self.handleSell)
 
-    	vbox = QVBoxLayout()
-    	vbox.addWidget(button1)
-    	vbox.addStretch(1)
-    	groupBox.setLayout(vbox)
+		hbox = QHBoxLayout()
+		hbox.addWidget(infobutton)
+		hbox.addWidget(buybutton)
+		hbox.addWidget(sellbutton)
+		hbox.addStretch(1)
+		groupBox.setLayout(hbox)
 
-    	return groupBox
+		return groupBox
 
-    def createTextBoxGroup(self):
-    	groupBox = QGroupBox("Text area")
+	def createTextBoxGroup(self):
+		groupBox = QGroupBox()
 
-    	self.log.setReadOnly(True)
+		self.log.setReadOnly(True)
 
-    	vbox = QVBoxLayout()
-    	vbox.addWidget(self.log)
-    	vbox.addStretch(1)
-    	groupBox.setLayout(vbox)
+		vbox = QVBoxLayout()
+		vbox.addWidget(self.log)
+		vbox.addStretch(1)
+		groupBox.setLayout(vbox)
 
-    	return groupBox
+		return groupBox
 
-    def handleClick(self, event):
-    	results = doQuery( myConnection )
-    	self.log.clear()
-    	for name, race, planet, affiliation in results:
-    		self.log.append(name + " " + race + " " + planet + " " + affiliation)
+	def createRefreshButton(self):
+		button = QPushButton("Data Refresh")
+		button.clicked.connect(self.handleRefresh)
+		return button
+
+	def handleInfo(self, event):
+		return
+
+	def handleBuy(self, event):
+		return
+
+	def handleSell(self, event):
+		return
+
+	def handleRefresh(self, event):
+		return
 
 
 if __name__ == '__main__':
 
-    app = QApplication(sys.argv)
-    clock = Window()
-    clock.show()
-    sys.exit(app.exec_())
+	app = QApplication(sys.argv)
+	window = Window()
+	window.show()
+	sys.exit(app.exec_())
