@@ -1,10 +1,14 @@
 CREATE SCHEMA IF NOT EXISTS `mydb` DEFAULT CHARACTER SET utf8 ;
 USE `mydb` ;
 
+DROP TABLE IF EXISTS `mydb`.`Portfolio` ;
+DROP TABLE IF EXISTS `mydb`.`Historical_Data` ;
+DROP TABLE IF EXISTS `mydb`.`Users` ;
+DROP TABLE IF EXISTS `mydb`.`Stocks` ;
+
 -- -----------------------------------------------------
 -- Table `mydb`.`Users`
 -- -----------------------------------------------------
-DROP TABLE IF EXISTS `mydb`.`Users` ;
 
 CREATE TABLE IF NOT EXISTS `mydb`.`Users` (
   `user_id` INT NOT NULL,
@@ -14,11 +18,9 @@ CREATE TABLE IF NOT EXISTS `mydb`.`Users` (
   UNIQUE INDEX `user_id_UNIQUE` (`user_id` ASC))
 ENGINE = InnoDB;
 
-
 -- -----------------------------------------------------
 -- Table `mydb`.`Stocks`
 -- -----------------------------------------------------
-DROP TABLE IF EXISTS `mydb`.`Stocks` ;
 
 CREATE TABLE IF NOT EXISTS `mydb`.`Stocks` (
   `stock` VARCHAR(45) NOT NULL,
@@ -27,11 +29,26 @@ CREATE TABLE IF NOT EXISTS `mydb`.`Stocks` (
   UNIQUE INDEX `stock_UNIQUE` (`stock` ASC))
 ENGINE = InnoDB;
 
+-- -----------------------------------------------------
+-- Table `mydb`.`Historical_Data`
+-- -----------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS `mydb`.`Historical_Data` (
+  `date` DATE NOT NULL,
+  `stock` VARCHAR(45) NOT NULL,
+  `adj_closed` INT NOT NULL,
+  PRIMARY KEY (`date`, `stock`),
+  INDEX `fk_Historical_Data_Stocks1_idx` (`stock` ASC),
+  CONSTRAINT `fk_Historical_Data_Stocks1`
+    FOREIGN KEY (`stock`)
+    REFERENCES `mydb`.`Stocks` (`stock`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
 
 -- -----------------------------------------------------
 -- Table `mydb`.`Portfolio`
 -- -----------------------------------------------------
-DROP TABLE IF EXISTS `mydb`.`Portfolio` ;
 
 CREATE TABLE IF NOT EXISTS `mydb`.`Portfolio` (
   `user_id` INT NOT NULL,
@@ -54,21 +71,37 @@ CREATE TABLE IF NOT EXISTS `mydb`.`Portfolio` (
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
-
 -- -----------------------------------------------------
--- Table `mydb`.`Historical_Data`
+-- Insert some initial info
 -- -----------------------------------------------------
-DROP TABLE IF EXISTS `mydb`.`Historical_Data` ;
-
-CREATE TABLE IF NOT EXISTS `mydb`.`Historical_Data` (
-  `date` DATE NOT NULL,
-  `stock` VARCHAR(45) NOT NULL,
-  `adj_closed` INT NOT NULL,
-  PRIMARY KEY (`date`, `stock`),
-  INDEX `fk_Historical_Data_Stocks1_idx` (`stock` ASC),
-  CONSTRAINT `fk_Historical_Data_Stocks1`
-    FOREIGN KEY (`stock`)
-    REFERENCES `mydb`.`Stocks` (`stock`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION)
-ENGINE = InnoDB;
+INSERT INTO `mydb`.`Users` (`user_id`, `starting_balance`, `current_balance`)
+	VALUES (1, 100000, 100000);
+INSERT INTO `mydb`.`Stocks` (`stock`, `name`)
+	VALUES ('YHOO', 'Yahoo! Inc.'),
+    ('GOOGL', 'Alphabet Inc Class A'),
+    ('MSFT', 'Microsoft Corporation'),
+    ('TWTR', 'Twitter Inc'),
+    ('AAPL', 'Apple Inc.'),
+    ('INTC', 'Intel Corporation'),
+    ('FB', 'Facebook, Inc.'),
+    ('AMZN', 'Amazon.com, Inc.'),
+    ('TSLA', 'Tesla, Inc.'),
+    ('GOOG', 'Alphabet Inc Class C');
+    
+DROP FUNCTION IF EXISTS mydb.most_recent_data;
+DELIMITER //
+CREATE FUNCTION mydb.most_recent_data()
+RETURNS DATE
+	BEGIN
+    DECLARE recent_date DATE;
+    SELECT d.date 
+    INTO recent_date
+    FROM mydb.Historical_Data d 
+    ORDER BY d.date DESC LIMIT 1;
+    IF recent_date IS NULL THEN
+		RETURN '2005-01-01';
+	ELSE
+		RETURN recent_date;
+	END IF;
+    END; //
+DELIMITER ;
