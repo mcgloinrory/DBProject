@@ -99,7 +99,7 @@ RETURNS DATE
     FROM mydb.Historical_Data d 
     ORDER BY d.date DESC LIMIT 1;
     IF recent_date IS NULL THEN
-		RETURN '2005-01-01';
+		RETURN '2015-01-01';
 	ELSE
 		RETURN recent_date;
 	END IF;

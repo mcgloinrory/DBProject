@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import sys
+import time
 import pymysql
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QGridLayout, QGroupBox,
 		QMenu, QPushButton, QRadioButton, QVBoxLayout, QWidget, QTextEdit, QHBoxLayout)
@@ -11,13 +12,24 @@ hostname = 'localhost'
 username = 'testuser'
 password = 'test'
 database = 'mydb'
-myConnection = pymysql.connect( host=hostname, user=username, passwd=password, db=database )
+myConnection = pymysql.connect( host=hostname, user=username, passwd=password, db=database, autocommit=True )
 
 # Query the DB
-def doQuery(conn, query) :
+def doQuery(conn, query):
 	cur = conn.cursor()
 	cur.execute(query)
 	return cur.fetchall()
+
+# Get stocks that exist in the DB
+def getStocks():
+	shares = []
+	for stock in doQuery(myConnection, 'SELECT stock FROM Stocks'):
+		shares.append(stock[0])
+	return shares
+
+# Get most recent date historical_data was refreshed
+def getRecentDate():
+	return str(doQuery(myConnection, 'SELECT most_recent_data()')[0][0])
 
 # Main Window
 class Window(QWidget):
@@ -81,10 +93,15 @@ class Window(QWidget):
 		return
 
 	def handleRefresh(self, event):
-		share = Share('YHOO')
-		self.log.clear()
-		for stock in share.get_historical('2015-05-10', '2015-05-15'):
-			self.log.append(stock['Symbol'] + ": " + stock['Adj_Close'])
+		lastDate = getRecentDate()
+		shares = getStocks()
+		for s in shares:
+			share = Share(s)
+			try:
+				for stock in share.get_historical(lastDate, time.strftime("%Y-%m-%d")):
+					doQuery(myConnection, "INSERT INTO `Historical_Data` (`date`, `stock`, `adj_closed`) VALUES ('" + stock['Date'] + "', '" + stock['Symbol'] + "', '" + stock['Adj_Close'] + "')")
+			except:
+				print('Error encountered')
 		return
 
 
