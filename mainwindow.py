@@ -4,7 +4,8 @@ import sys
 import time
 import pymysql
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QGridLayout, QGroupBox,
-		QMenu, QPushButton, QRadioButton, QVBoxLayout, QWidget, QTextEdit, QHBoxLayout)
+		QMenu, QPushButton, QRadioButton, QVBoxLayout, QWidget, QTextEdit, QHBoxLayout,
+		QLineEdit, QDialog, QLabel)
 from yahoo_finance import Share
 
 # DB Credentials
@@ -30,6 +31,58 @@ def getStocks():
 # Get most recent date historical_data was refreshed
 def getRecentDate():
 	return str(doQuery(myConnection, 'SELECT most_recent_data()')[0][0])
+
+# Window to show the results of info check
+class ResultWindow(QDialog):
+
+	def __init__(self, result, parent=None):
+		super(ResultWindow, self).__init__(parent)
+
+		self.grid = QGridLayout()
+		self.grid.addWidget(QLabel("Company Info"), 0, 0)
+		self.log = QTextEdit()
+		self.log.setText(str(result))
+		self.log.setReadOnly(True)
+		self.grid.addWidget(self.log, 1, 0)
+		self.button = QPushButton("Return To Homepage")
+		self.button.clicked.connect(self.handleClick)
+		self.grid.addWidget(self.button)
+		self.setLayout(self.grid)
+
+	def handleClick(self, event):
+		self.hide()
+		return
+
+
+# Window for checking Stock Info
+class InfoWindow(QDialog):
+
+	def __init__(self, parent=None):
+		super(InfoWindow, self).__init__(parent)
+		self.grid = QGridLayout()
+		self.grid.addWidget(QLabel("Enter Ticker:"), 0, 0)
+		self.textfield = QTextEdit()
+		self.grid.addWidget(self.textfield, 1, 0)
+		enterbutton = QPushButton("Enter")
+		enterbutton.clicked.connect(self.handleClick)
+		self.grid.addWidget(enterbutton)
+		self.setLayout(self.grid)
+		self.resize(200, 100)
+		self.show()
+
+	def handleClick(self, event):
+		ticker = self.textfield.toPlainText()
+		result = doQuery(myConnection, "SELECT s.name FROM Stocks s WHERE s.stock = '" + ticker + "'")
+		if result:
+			self.resultDialog(result[0][0])
+		else:
+			self.resultDialog("The ticker entered did not match a known company")
+		return
+
+	def resultDialog(self, result):
+		dialog = ResultWindow(result, self)
+		dialog.show()
+		self.hide()
 
 # Main Window
 class Window(QWidget):
@@ -84,7 +137,9 @@ class Window(QWidget):
 		return button
 
 	def handleInfo(self, event):
-		return
+		self.infowindow = InfoWindow()
+		self.infowindow.show()
+		return self.infowindow
 
 	def handleBuy(self, event):
 		return
