@@ -1,5 +1,5 @@
 CREATE SCHEMA IF NOT EXISTS `mydb` DEFAULT CHARACTER SET utf8 ;
-USE `mydb` ;
+USE `mydb`;
 
 DROP TABLE IF EXISTS `mydb`.`Portfolio` ;
 DROP TABLE IF EXISTS `mydb`.`Historical_Data` ;
@@ -55,8 +55,7 @@ CREATE TABLE IF NOT EXISTS `mydb`.`Portfolio` (
   `stock` VARCHAR(45) NOT NULL,
   `p_bought_at` INT NOT NULL,
   `volume` INT NOT NULL,
-  `d_bouth_at` DATE NOT NULL,
-  PRIMARY KEY (`user_id`, `stock`),
+  `d_bought_at` DATE NOT NULL,
   INDEX `fk_Portfolio_Users_idx` (`user_id` ASC),
   INDEX `fk_Portfolio_Stocks1_idx` (`stock` ASC),
   CONSTRAINT `fk_Portfolio_Users`
