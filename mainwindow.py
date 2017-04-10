@@ -16,8 +16,8 @@ from yahoo_finance import Share
 
 # DB Credentials
 hostname = 'localhost'
-username = 'root'
-password = 'homesweethome'
+username = 'username'
+password = 'password'
 database = 'mydb'
 myConnection = pymysql.connect(host=hostname, user=username, passwd=password, db=database, autocommit=True)
 
