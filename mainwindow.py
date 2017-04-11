@@ -41,7 +41,64 @@ def getStocks():
 def getRecentDate():
 	return str(doQuery(myConnection, 'SELECT most_recent_data()')[0][0])
 
+# Failure result for logging in
+class LoginResultWindow(QDialog):
+	def __init__(self, result, parent=None):
+		super(LoginResultWindow, self).__init__(parent)
 
+		self.grid = QGridLayout()
+		self.grid.addWidget(QLabel("User ID was not found"), 0, 0)
+		self.tryagainbutton = QPushButton("Try Again")
+		self.tryagainbutton.clicked.connect(self.handleTryAgain)
+		self.exitbutton = QPushButton("Exit")
+		self.exitbutton.clicked.connect(self.handleExit)
+		self.groupBox = QGroupBox()
+		hbox = QHBoxLayout()
+		hbox.addWidget(self.tryagainbutton)
+		hbox.addWidget(self.exitbutton)
+		hbox.addStretch(1)
+		self.groupBox.setLayout(hbox)
+		self.grid.addWidget(self.groupBox, 1, 0)
+		self.setLayout(self.grid)
+
+	def handleTryAgain(self, event):
+		self.loginwindow = LoginWindow(self)
+		self.loginwindow.show()
+		self.hide()
+		return
+
+	def handleExit(self, event):
+		self.hide()
+		return
+
+
+# Login prompt for user_id
+class LoginWindow(QDialog):
+	def __init__(self, result, parent=None):
+		super(LoginWindow, self).__init__(parent)
+
+		self.grid = QGridLayout()
+		self.grid.addWidget(QLabel("Please Enter Your User Id"), 0, 0)
+		self.field = QTextEdit()
+		self.grid.addWidget(self.field)
+		self.confirmbutton = QPushButton("Confirm")
+		self.confirmbutton.clicked.connect(self.handleClick)
+		self.grid.addWidget(self.confirmbutton)
+		self.setLayout(self.grid)
+
+	def handleClick(self, event):
+		id = self.field.toPlainText()
+
+		if doQuery(myConnection, "SELECT * FROM Users u WHERE u.user_id = '" + id + "'"):
+			global userId
+			userId = id
+			self.hide()
+			window.show()
+		else:
+			self.resultWindow = LoginResultWindow(self)
+			self.resultWindow.show()
+			self.hide()
+		return
 
 # Window to show the results of info check
 class InfoResultWindow(QDialog):
@@ -138,7 +195,7 @@ class BuyWindow(QDialog):
 	def __init__(self, parent=None):
 		super(BuyWindow, self).__init__(parent)
 		self.grid = QGridLayout()
-		cur_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = 1")
+		cur_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = " + userId)
 		cur_balance = str(cur_balance[0][0])
 		self.log = QLineEdit()
 		self.log.setText("Current Balance: '" + cur_balance + "'")
@@ -182,15 +239,15 @@ class BuyWindow(QDialog):
 		date = pydate.strftime('%Y/%m/%d')
 
 		if doQuery(myConnection, "SELECT stock FROM stocks WHERE stock = '" + ticker + "'"):
-			current_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = 1")
+			current_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = " + userId)
 			if current_balance[0][0] > (int(price) * int(volume)):
 
 				try:
 					balance = int(current_balance[0][0]) - (int(price) * int(volume))
 					doQuery(myConnection, "INSERT INTO Portfolio (user_id, stock, p_bought_at, volume, d_bought_at)" +
-												"VALUES (1 ,'" + ticker + "', '" + price + "' , '" + volume + "', '" + date + "')")
-					doQuery(myConnection, "UPDATE users SET current_balance = '" + str(balance) + "'WHERE user_id = 1")
-					doQuery(myConnection, "UPDATE Portfolio SET d_bought_at = '" + date + "' WHERE stock = '" + ticker + "'")
+												"VALUES (" + userId + " ,'" + ticker + "', '" + price + "' , '" + volume + "', '" + date + "')")
+					doQuery(myConnection, "UPDATE users SET current_balance = '" + str(balance) + "'WHERE user_id = " + userId)
+					doQuery(myConnection, "UPDATE Portfolio SET d_bought_at = '" + date + "' WHERE user_id = " + userId + " AND stock = '" + ticker + "'")
 
 					self.resultDialog("The stock has been successfully purchased. "
 									  "You're new account balance is: '" + str(balance) + "')")
@@ -199,11 +256,11 @@ class BuyWindow(QDialog):
 					self.resultDialog("This is not a valid stock ticker. Please try again.")
 
 				except pymysql.err.IntegrityError:
-					cur_volume = doQuery(myConnection, "SELECT volume FROM portfolio WHERE stock = '" + ticker + "'")
+					cur_volume = doQuery(myConnection, "SELECT volume FROM portfolio WHERE user_id = " + userId + " AND stock = '" + ticker + "'")
 					new_volume = int(volume) + int(cur_volume[0][0])
-					doQuery(myConnection, "UPDATE Portfolio SET volume = '" + str(new_volume) + "' WHERE stock = '" + ticker + "'")
-					doQuery(myConnection, "UPDATE Users SET current_balance = '" + str(balance) + "'WHERE user_id = 1")
-					doQuery(myConnection, "UPDATE Portfolio SET d_bought_at = '" + date + "' WHERE stock = '" + ticker + "'")
+					doQuery(myConnection, "UPDATE Portfolio SET volume = '" + str(new_volume) + "' WHERE user_id = " + userId + " AND stock = '" + ticker + "'")
+					doQuery(myConnection, "UPDATE Users SET current_balance = '" + str(balance) + "'WHERE user_id = " + userId)
+					doQuery(myConnection, "UPDATE Portfolio SET d_bought_at = '" + date + "' WHERE user_id = " + userId + " AND stock = '" + ticker + "'")
 					self.resultDialog("The stock has been successfully purchased. You're new account balance is: '" + str(balance) + "')")
 
 				except ValueError:
@@ -252,7 +309,7 @@ class SellWindow(QDialog):
 	def __init__(self, parent=None):
 		super(SellWindow, self).__init__(parent)
 		self.grid = QGridLayout()
-		cur_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = 1")
+		cur_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = " + userId)
 		cur_balance = str(cur_balance[0][0])
 		self.log = QLineEdit()
 		self.log.setText("Current Balance: '" + cur_balance + "'")
@@ -291,16 +348,17 @@ class SellWindow(QDialog):
 		date = pydate.strftime('%Y/%m/%d')
 
 		if doQuery(myConnection, "SELECT stock FROM stocks WHERE stock = '" + ticker + "'"):
-			cur_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = 1")
-			balance = int(cur_balance[0][0]) + (int(price) * int(volume))
-			if doQuery(myConnection, "SELECT volume FROM portfolio WHERE stock = '" + ticker + "'"):
-				cur_volume = doQuery(myConnection, "SELECT volume FROM portfolio WHERE stock = '" + ticker + "'")
+			cur_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = " + userId)
+			balance = int(float(cur_balance[0][0]) + (int(price) * int(volume)))
+			if doQuery(myConnection, "SELECT volume FROM portfolio WHERE user_id = " + userId + " AND stock = '" + ticker + "'"):
+				cur_volume = doQuery(myConnection, "SELECT volume FROM portfolio WHERE user_id = " + userId + " AND stock = '" + ticker + "'")
 				cur_volume = int(cur_volume[0][0])
 				if cur_volume >= int(volume):
 					volume = cur_volume - int(volume)
 					try:
-						doQuery(myConnection, "UPDATE users SET current_balance = '" + str(balance) + "'WHERE user_id = 1")
-						doQuery(myConnection, "UPDATE portfolio SET volume = '" + str(volume) + "' WHERE stock = '" + ticker + "'")
+						doQuery(myConnection, "UPDATE users SET current_balance = '" + str(balance) + "'WHERE user_id = " + userId)
+						doQuery(myConnection, "UPDATE portfolio SET volume = '" + str(volume) + 
+							"' WHERE user_id = " + userId + " AND stock = '" + ticker + "'")
 						self.resultDialog("The stock has been successfully sold. You're new account balance is: '" + str(balance) + "'")
 
 					except pymysql.err.DataError:
@@ -324,6 +382,9 @@ class SellWindow(QDialog):
 class Window(QWidget):
 	def __init__(self, parent=None):
 		super(Window, self).__init__(parent)
+
+		self.login = LoginWindow(self)
+		self.login.show()
 
 		self.grid = QGridLayout()
 		self.log = QTextEdit()
@@ -404,5 +465,4 @@ class Window(QWidget):
 if __name__ == '__main__':
 	app = QApplication(sys.argv)
 	window = Window()
-	window.show()
 	sys.exit(app.exec_())

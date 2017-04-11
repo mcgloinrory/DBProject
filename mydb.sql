@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS `mydb`.`Portfolio` (
   `p_bought_at` INT NOT NULL,
   `volume` INT NOT NULL,
   `d_bought_at` DATE NOT NULL,
-  PRIMARY KEY (`user_id`, `stock`)
+  PRIMARY KEY (`user_id`, `stock`),
   INDEX `fk_Portfolio_Users_idx` (`user_id` ASC),
   INDEX `fk_Portfolio_Stocks1_idx` (`stock` ASC),
   CONSTRAINT `fk_Portfolio_Users`
