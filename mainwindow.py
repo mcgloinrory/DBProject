@@ -6,11 +6,11 @@ import datetime
 
 
 import pymysql
-from PyQt5.QtCore import QDate
+from PyQt5.QtCore import QDate, Qt
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QGridLayout, QGroupBox,
 							 QMenu, QPushButton, QRadioButton, QVBoxLayout, QWidget, QTextEdit, QHBoxLayout,
-							 QLineEdit, QDialog, QLabel, QDateEdit)
-
+							 QLineEdit, QDialog, QLabel, QDateEdit, QTableWidget, QTableWidgetItem, QHeaderView)
+from PyQt5.uic.properties import QtCore, QtGui
 
 from yahoo_finance import Share
 
@@ -32,8 +32,8 @@ def doQuery(conn, query):
 # Get stocks that exist in the DB
 def getStocks():
 	shares = []
-	for stock in doQuery(myConnection, 'SELECT stock FROM Stocks'):
-		shares.append(stock[0])
+	for stock in doQuery(myConnection, 'SELECT * FROM Portfolio'):
+		shares.append(stock[1])
 	return shares
 
 
@@ -61,6 +61,7 @@ class InfoResultWindow(QDialog):
 		self.grid.addWidget(self.button)
 		self.grid.addWidget(self.button2)
 		self.setLayout(self.grid)
+
 
 	def handleClick(self, event):
 		self.hide()
@@ -183,18 +184,16 @@ class BuyWindow(QDialog):
 
 		if doQuery(myConnection, "SELECT stock FROM stocks WHERE stock = '" + ticker + "'"):
 			current_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = 1")
-			if current_balance[0][0] > (int(price) * int(volume)):
-
+			if current_balance[0][0] > (float(price) * int(volume)):
 				try:
-					balance = int(current_balance[0][0]) - (int(price) * int(volume))
+					balance = int(current_balance[0][0]) - (float(price) * int(volume))
 					doQuery(myConnection, "INSERT INTO Portfolio (user_id, stock, p_bought_at, volume, d_bought_at)" +
 												"VALUES (1 ,'" + ticker + "', '" + price + "' , '" + volume + "', '" + date + "')")
 					doQuery(myConnection, "UPDATE users SET current_balance = '" + str(balance) + "'WHERE user_id = 1")
 					doQuery(myConnection, "UPDATE Portfolio SET d_bought_at = '" + date + "' WHERE stock = '" + ticker + "'")
-
-					self.resultDialog("The stock has been successfully purchased. "
-									  "You're new account balance is: '" + str(balance) + "')")
-
+					self.resultDialog("The stock has been successfully purchased. ""You're new account balance is: '" + str(balance) + "')")
+				except ValueError:
+					self.resultDialog("Please enter valid numbers for both price and volume.")
 				except pymysql.InternalError:
 					self.resultDialog("This is not a valid stock ticker. Please try again.")
 
@@ -206,8 +205,7 @@ class BuyWindow(QDialog):
 					doQuery(myConnection, "UPDATE Portfolio SET d_bought_at = '" + date + "' WHERE stock = '" + ticker + "'")
 					self.resultDialog("The stock has been successfully purchased. You're new account balance is: '" + str(balance) + "')")
 
-				except ValueError:
-					self.resultDialog("Please enter valid numbers for both price and volume.")
+
 
 			else:
 				self.resultDialog("Insufficient funds to buy this many shares. Please try again.")
@@ -292,29 +290,39 @@ class SellWindow(QDialog):
 
 		if doQuery(myConnection, "SELECT stock FROM stocks WHERE stock = '" + ticker + "'"):
 			cur_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = 1")
-			balance = int(cur_balance[0][0]) + (int(price) * int(volume))
+			balance = int(cur_balance[0][0]) + (float(price) * int(volume))
 			if doQuery(myConnection, "SELECT volume FROM portfolio WHERE stock = '" + ticker + "'"):
 				cur_volume = doQuery(myConnection, "SELECT volume FROM portfolio WHERE stock = '" + ticker + "'")
 				cur_volume = int(cur_volume[0][0])
-				if cur_volume >= int(volume):
-					volume = cur_volume - int(volume)
+				volume = cur_volume - int(volume)
+				if volume == 0:
+					doQuery(myConnection, "UPDATE users SET current_balance = '" + str(balance) + "'WHERE user_id = 1")
+					return self.removeStock(ticker, "The stock has been successfully sold. You're new account balance is: '" + str(balance) + "'")
+				elif volume > 0:
 					try:
 						doQuery(myConnection, "UPDATE users SET current_balance = '" + str(balance) + "'WHERE user_id = 1")
 						doQuery(myConnection, "UPDATE portfolio SET volume = '" + str(volume) + "' WHERE stock = '" + ticker + "'")
 						self.resultDialog("The stock has been successfully sold. You're new account balance is: '" + str(balance) + "'")
-
 					except pymysql.err.DataError:
 						self.resultDialog("You do not own enough shares to sell this many. Please try again.")
 					except ValueError:
 						self.resultDialog("Please enter valid numbers for both price and volume.")
-				else:
+				elif volume < 0:
 					self.resultDialog("You do not own enough shares to sell this many. Please try again.")
+
 			else:
-				self.resultDialog("You do not own this stock yet. Feel free to purchase it on the homepage.")
+				self.resultDialog("You do not own this stock yet. Feel free to purchase it in the main window.")
 		else:
 			self.resultDialog("This is not a valid ticker. Please try again.")
 
 	def resultDialog(self, result):
+		dialog = SellResultWindow(result, self)
+		dialog.show()
+		self.hide()
+
+	def removeStock(self, stock, result):
+		doQuery(myConnection, "DELETE FROM Portfolio WHERE stock = '" + stock + "'")
+		window.removeRow(stock)
 		dialog = SellResultWindow(result, self)
 		dialog.show()
 		self.hide()
@@ -327,13 +335,24 @@ class Window(QWidget):
 
 		self.grid = QGridLayout()
 		self.log = QTextEdit()
-		self.grid.addWidget(self.createButtonGroup(), 0, 0)
-		self.grid.addWidget(self.createTextBoxGroup(), 1, 0)
-		self.grid.addWidget(self.createRefreshButton(), 2, 0)
+		self.table = QTableWidget(self.getPortfolioSize(), 7, self)
+		self.table.setHorizontalHeaderLabels(["Stock", "Volume Owned", "Purchase Date", "Purchase Price",
+											  "Current Price", "Today's Change", "P/E Ratio"])
+		self.grid.addWidget(self.createButtonGroup())
+		self.grid.addWidget(self.table)
+		self.grid.addWidget(self.createRefreshButton())
 		self.setLayout(self.grid)
+		self.table.horizontalHeader().setStretchLastSection(True)
+
 
 		self.setWindowTitle("Portfolio Manager")
-		self.resize(360, 320)
+		self.resize(780, 320)
+
+	def getPortfolioSize(self):
+
+		stock_num = doQuery(myConnection, "SELECT COUNT(stock) FROM portfolio")
+		stock_num = int(stock_num[0][0])
+		return stock_num
 
 	def createButtonGroup(self):
 		groupBox = QGroupBox()
@@ -360,8 +379,8 @@ class Window(QWidget):
 		self.log.setReadOnly(True)
 
 		vbox = QVBoxLayout()
-		vbox.addWidget(self.log)
-		vbox.addStretch(1)
+		vbox.addWidget(self.table)
+		vbox.addStretch()
 		groupBox.setLayout(vbox)
 
 		return groupBox
@@ -386,19 +405,45 @@ class Window(QWidget):
 		self.sellwindow.show()
 		return self.sellwindow
 
-	def handleRefresh(self, event):
-		lastDate = getRecentDate()
-		shares = getStocks()
-		for s in shares:
-			share = Share(s)
-			try:
-				for stock in share.get_historical(lastDate, time.strftime("%Y-%m-%d")):
-					doQuery(myConnection,
-							"INSERT INTO `Historical_Data` (`date`, `stock`, `adj_closed`) VALUES ('" + stock[
-								'Date'] + "', '" + stock['Symbol'] + "', '" + stock['Adj_Close'] + "')")
-			except:
-				print('Error encountered')
+	def getName(self,stock):
+		name = doQuery(myConnection, "SELECT stock FROM stocks WHERE stock = '" + stock + "'")
+		return str(name[0][0])
+
+
+	def removeRow(self, stock):
+		ans = self.table.findItems(str(stock), Qt.MatchExactly)
+		row = self.table.row(ans[0])
+		self.table.removeRow(row)
 		return
+
+	def handleRefresh(self, event):
+		stocks = getStocks()
+		rowPosition = self.table.rowCount()
+		portSize = self.getPortfolioSize()
+		print(stocks)
+		if rowPosition < portSize:
+			self.table.insertRow(rowPosition)
+			self.handleRefresh(event)
+
+		elif rowPosition >= portSize:
+			c = 0
+			for s in stocks:
+				volume = doQuery(myConnection,"SELECT volume FROM Portfolio WHERE stock = '" + s + "'")
+				volume = str(volume[0][0])
+				price = doQuery(myConnection, "SELECT p_bought_at FROM Portfolio WHERE stock = '" + s + "'")
+				price = str(price[0][0])
+				date = doQuery(myConnection, "SELECT d_bought_at FROM Portfolio WHERE stock = '" + s + "'")
+				date = str(date[0][0])
+				self.table.setItem(c, 0, QTableWidgetItem(s))
+				self.table.setItem(c, 1, QTableWidgetItem(volume))
+				self.table.setItem(c, 2, QTableWidgetItem(date))
+				self.table.setItem(c, 3, QTableWidgetItem(price))
+				s = Share(s)
+				self.table.setItem(c, 4, QTableWidgetItem(s.get_price()))
+				self.table.setItem(c, 5, QTableWidgetItem(s.get_change_percent_change()))
+				self.table.setItem(c, 6, QTableWidgetItem(s.get_price_earnings_ratio()))
+
+				c = c + 1
 
 
 if __name__ == '__main__':
