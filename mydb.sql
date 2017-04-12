@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS `mydb`.`Stocks` (
   `stock` VARCHAR(45) NOT NULL,
   `name` VARCHAR(45) NULL DEFAULT NULL,
   PRIMARY KEY (`stock`),
-  UNIQUE INDEX `stock_UNIQUE` (`stock` ASC))
+  UNIQUE INDEX `stock_UNIQUE` (`stock`))
 ENGINE = InnoDB;
 
 -- -----------------------------------------------------
@@ -37,7 +37,6 @@ CREATE TABLE IF NOT EXISTS `mydb`.`Historical_Data` (
   `date` DATE NOT NULL,
   `stock` VARCHAR(45) NOT NULL,
   `adj_closed` INT NOT NULL,
-  PRIMARY KEY (`date`, `stock`),
   INDEX `fk_Historical_Data_Stocks1_idx` (`stock` ASC),
   CONSTRAINT `fk_Historical_Data_Stocks1`
     FOREIGN KEY (`stock`)
