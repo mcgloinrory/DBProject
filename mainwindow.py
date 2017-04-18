@@ -258,8 +258,6 @@ class BuyWindow(QDialog):
 					balance = int(current_balance[0][0]) - (float(price) * int(volume))
 					doQuery(myConnection, "INSERT INTO Portfolio (user_id, stock, p_bought_at, volume, d_bought_at)" +
 												"VALUES ('" + userId + "' ,'" + ticker + "', '" + price + "' , '" + volume + "', '" + date + "')")
-
-												"VALUES (1 ,'" + ticker + "', '" + price + "' , '" + volume + "', '" + date + "')")
 					doQuery(myConnection, "UPDATE users SET current_balance = '" + str(balance) + "'WHERE user_id = " + userId)
 					doQuery(myConnection, "UPDATE Portfolio SET d_bought_at = '" + date + "' WHERE stock = '" + ticker + "'")
 					self.resultDialog("The stock has been successfully purchased. ""You're new account balance is: '" + str(balance) + "')")
