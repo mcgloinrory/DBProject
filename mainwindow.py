@@ -241,14 +241,14 @@ class BuyWindow(QDialog):
 
 		if doQuery(myConnection, "SELECT stock FROM stocks WHERE stock = '" + ticker + "'"):
 
-			current_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = 1")
+			current_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = " + userId)
 			if current_balance[0][0] > (float(price) * int(volume)):
 				try:
 					balance = int(current_balance[0][0]) - (float(price) * int(volume))
 					doQuery(myConnection, "INSERT INTO Portfolio (user_id, stock, p_bought_at, volume, d_bought_at)" +
 
 												"VALUES (1 ,'" + ticker + "', '" + price + "' , '" + volume + "', '" + date + "')")
-					doQuery(myConnection, "UPDATE users SET current_balance = '" + str(balance) + "'WHERE user_id = 1")
+					doQuery(myConnection, "UPDATE users SET current_balance = '" + str(balance) + "'WHERE user_id = " + userId)
 					doQuery(myConnection, "UPDATE Portfolio SET d_bought_at = '" + date + "' WHERE stock = '" + ticker + "'")
 					self.resultDialog("The stock has been successfully purchased. ""You're new account balance is: '" + str(balance) + "')")
 				except ValueError:
@@ -349,7 +349,7 @@ class SellWindow(QDialog):
 		date = pydate.strftime('%Y/%m/%d')
 
 		if doQuery(myConnection, "SELECT stock FROM stocks WHERE stock = '" + ticker + "'"):
-			cur_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = 1")
+			cur_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = " + userId)
 			balance = int(cur_balance[0][0]) + (float(price) * int(volume))
 			if doQuery(myConnection, "SELECT volume FROM portfolio WHERE stock = '" + ticker + "'"):
 				cur_volume = doQuery(myConnection, "SELECT volume FROM portfolio WHERE stock = '" + ticker + "'")
@@ -358,7 +358,7 @@ class SellWindow(QDialog):
 				cur_volume = int(cur_volume[0][0])
 				volume = cur_volume - int(volume)
 				if volume == 0:
-					doQuery(myConnection, "UPDATE users SET current_balance = '" + str(balance) + "'WHERE user_id = 1")
+					doQuery(myConnection, "UPDATE users SET current_balance = '" + str(balance) + "'WHERE user_id = " + userId)
 					return self.removeStock(ticker, "The stock has been successfully sold. You're new account balance is: '" + str(balance) + "'")
 				elif volume > 0:
 					try:
@@ -400,7 +400,6 @@ class Window(QWidget):
 		self.login.show()
 
 		self.grid = QGridLayout()
-		self.log = QTextEdit()
 		self.table = QTableWidget(self.getPortfolioSize(), 7, self)
 		self.table.setHorizontalHeaderLabels(["Stock", "Volume Owned", "Purchase Date", "Purchase Price",
 											  "Current Price", "Today's Change", "P/E Ratio"])
@@ -436,18 +435,6 @@ class Window(QWidget):
 		hbox.addWidget(sellbutton)
 		hbox.addStretch(1)
 		groupBox.setLayout(hbox)
-
-		return groupBox
-
-	def createTextBoxGroup(self):
-		groupBox = QGroupBox()
-
-		self.log.setReadOnly(True)
-
-		vbox = QVBoxLayout()
-		vbox.addWidget(self.table)
-		vbox.addStretch()
-		groupBox.setLayout(vbox)
 
 		return groupBox
 
@@ -510,6 +497,9 @@ class Window(QWidget):
 				self.table.setItem(c, 6, QTableWidgetItem(s.get_price_earnings_ratio()))
 
 				c = c + 1
+
+	def setReadOnly(self, item):
+		item.setFlags(QtCore.Qt.ItemIsEnalbled)
 
 
 if __name__ == '__main__':
