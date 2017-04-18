@@ -16,8 +16,8 @@ from yahoo_finance import Share
 
 # DB Credentials
 hostname = 'localhost'
-username = 'username'
-password = 'password'
+username = 'root'
+password = 'homesweethome'
 database = 'mydb'
 myConnection = pymysql.connect(host=hostname, user=username, passwd=password, db=database, autocommit=True)
 
@@ -47,9 +47,9 @@ class LoginResultWindow(QDialog):
 		super(LoginResultWindow, self).__init__(parent)
 
 		self.grid = QGridLayout()
-		self.grid.addWidget(QLabel("User ID was not found"), 0, 0)
+		self.grid.addWidget(QLabel("User ID was not found. Would you like to make this id?"), 0, 0)
 		self.tryagainbutton = QPushButton("Try Again")
-		self.tryagainbutton.clicked.connect(self.handleTryAgain)
+		self.tryagainbutton.clicked.connect(self.handleTryAgain(result))
 		self.exitbutton = QPushButton("Exit")
 		self.exitbutton.clicked.connect(self.handleExit)
 		self.groupBox = QGroupBox()
@@ -72,6 +72,8 @@ class LoginResultWindow(QDialog):
 		return
 
 
+
+
 # Login prompt for user_id
 class LoginWindow(QDialog):
 	def __init__(self, result, parent=None):
@@ -85,6 +87,7 @@ class LoginWindow(QDialog):
 		self.confirmbutton.clicked.connect(self.handleClick)
 		self.grid.addWidget(self.confirmbutton)
 		self.setLayout(self.grid)
+
 
 	def handleClick(self, event):
 		id = self.field.toPlainText()
@@ -100,6 +103,8 @@ class LoginWindow(QDialog):
 			self.hide()
 		return
 
+
+
 # Window to show the results of info check
 class InfoResultWindow(QDialog):
 	def __init__(self, result, parent=None):
@@ -108,7 +113,13 @@ class InfoResultWindow(QDialog):
 		self.grid = QGridLayout()
 		self.grid.addWidget(QLabel("Company Info"), 0, 0)
 		self.log = QTextEdit()
-		self.log.setText(str(result))
+		s = Share(result)
+		self.log.setText(str(s.get_name()) +  "\n" + "Market Cap: " + str(s.get_market_cap())
+		+ "\n" + "Volume: " + str(s.get_volume())
+		+ "\n" + "Current Price: " + str(s.get_price()))
+
+
+
 		self.log.setReadOnly(True)
 		self.grid.addWidget(self.log, 1, 0)
 		self.button = QPushButton("Return To Homepage")
@@ -132,6 +143,7 @@ class InfoResultWindow(QDialog):
 		return self.infowindow
 
 
+
 # Window for checking Stock Info
 class InfoWindow(QDialog):
 	def __init__(self, parent=None):
@@ -149,7 +161,7 @@ class InfoWindow(QDialog):
 
 	def handleClick(self, event):
 		ticker = self.textfield.toPlainText()
-		result = doQuery(myConnection, "SELECT s.name FROM Stocks s WHERE s.stock = '" + ticker + "'")
+		result = doQuery(myConnection, "SELECT stock FROM Stocks s WHERE s.stock = '" + ticker + "'")
 		if result:
 			self.resultDialog(result[0][0])
 		else:
@@ -240,12 +252,12 @@ class BuyWindow(QDialog):
 		date = pydate.strftime('%Y/%m/%d')
 
 		if doQuery(myConnection, "SELECT stock FROM stocks WHERE stock = '" + ticker + "'"):
-
 			current_balance = doQuery(myConnection, "SELECT current_balance FROM users WHERE user_id = " + userId)
 			if current_balance[0][0] > (float(price) * int(volume)):
 				try:
 					balance = int(current_balance[0][0]) - (float(price) * int(volume))
 					doQuery(myConnection, "INSERT INTO Portfolio (user_id, stock, p_bought_at, volume, d_bought_at)" +
+												"VALUES ('" + userId + "' ,'" + ticker + "', '" + price + "' , '" + volume + "', '" + date + "')")
 
 												"VALUES (1 ,'" + ticker + "', '" + price + "' , '" + volume + "', '" + date + "')")
 					doQuery(myConnection, "UPDATE users SET current_balance = '" + str(balance) + "'WHERE user_id = " + userId)
@@ -253,7 +265,6 @@ class BuyWindow(QDialog):
 					self.resultDialog("The stock has been successfully purchased. ""You're new account balance is: '" + str(balance) + "')")
 				except ValueError:
 					self.resultDialog("Please enter valid numbers for both price and volume.")
-
 				except pymysql.InternalError:
 					self.resultDialog("This is not a valid stock ticker. Please try again.")
 
@@ -263,12 +274,13 @@ class BuyWindow(QDialog):
 					doQuery(myConnection, "UPDATE Portfolio SET volume = '" + str(new_volume) + "' WHERE user_id = " + userId + " AND stock = '" + ticker + "'")
 					doQuery(myConnection, "UPDATE Users SET current_balance = '" + str(balance) + "'WHERE user_id = " + userId)
 					doQuery(myConnection, "UPDATE Portfolio SET d_bought_at = '" + date + "' WHERE user_id = " + userId + " AND stock = '" + ticker + "'")
-					self.resultDialog("The stock has been successfully purchased. You're new account balance is: '" + str(balance) + "')")
-
-
+					self.resultDialog(
+						"The stock has been successfully purchased. ""You're new account balance is: '" + str(
+							balance) + "')")
 
 			else:
 				self.resultDialog("Insufficient funds to buy this many shares. Please try again.")
+
 		else:
 			self.resultDialog("This is not a valid ticker. Please try again.")
 
@@ -353,8 +365,6 @@ class SellWindow(QDialog):
 			balance = int(cur_balance[0][0]) + (float(price) * int(volume))
 			if doQuery(myConnection, "SELECT volume FROM portfolio WHERE stock = '" + ticker + "'"):
 				cur_volume = doQuery(myConnection, "SELECT volume FROM portfolio WHERE stock = '" + ticker + "'")
-
-	
 				cur_volume = int(cur_volume[0][0])
 				volume = cur_volume - int(volume)
 				if volume == 0:
@@ -401,13 +411,14 @@ class Window(QWidget):
 
 		self.grid = QGridLayout()
 		self.table = QTableWidget(self.getPortfolioSize(), 7, self)
-		self.table.setHorizontalHeaderLabels(["Stock", "Volume Owned", "Purchase Date", "Purchase Price",
-											  "Current Price", "Today's Change", "P/E Ratio"])
+		self.table.setHorizontalHeaderLabels(["Stock Ticker", "Volume Owned", "Purchase Date", "Purchase Price",
+											  "Current Price", "P/E Ratio", "Today's Change"])
 		self.grid.addWidget(self.createButtonGroup())
 		self.grid.addWidget(self.table)
 		self.grid.addWidget(self.createRefreshButton())
 		self.setLayout(self.grid)
 		self.table.horizontalHeader().setStretchLastSection(True)
+		self.table.resizeColumnsToContents()
 
 
 		self.setWindowTitle("Portfolio Manager")
@@ -473,7 +484,6 @@ class Window(QWidget):
 		stocks = getStocks()
 		rowPosition = self.table.rowCount()
 		portSize = self.getPortfolioSize()
-		print(stocks)
 		if rowPosition < portSize:
 			self.table.insertRow(rowPosition)
 			self.handleRefresh(event)
@@ -493,8 +503,8 @@ class Window(QWidget):
 				self.table.setItem(c, 3, QTableWidgetItem(price))
 				s = Share(s)
 				self.table.setItem(c, 4, QTableWidgetItem(s.get_price()))
-				self.table.setItem(c, 5, QTableWidgetItem(s.get_change_percent_change()))
-				self.table.setItem(c, 6, QTableWidgetItem(s.get_price_earnings_ratio()))
+				self.table.setItem(c, 6, QTableWidgetItem(s.get_change_percent_change()))
+				self.table.setItem(c, 5, QTableWidgetItem(s.get_price_earnings_ratio()))
 
 				c = c + 1
 
